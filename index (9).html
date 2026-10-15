@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>eScorer Bola Tampar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-column scorer — scoreboard on top, action row, tabbed panel (court / log / summary) */
+:root{
+  --bg:#eaeef2; --surface:#ffffff; --surface2:#f4f6f8; --ink:#15212b; --muted:#5d6c78; --line:#d5dde3;
+  --a:#0d6b3c; --a-ink:#ffffff; --b:#f2b705; --b-ink:#2b2100;
+  --court:#df7c5c; --free:#4fb1b3; --lines:#ffffff; --accent:#2747a8; --warn:#c2410c; --ok:#15803d;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --tk:clamp(38px,10.5vw,58px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1418; --surface:#172027; --surface2:#1d2830; --ink:#e5ecf1; --muted:#8e9eaa; --line:#28343d;
+  --a:#1c8a50; --a-ink:#ffffff; --b:#e8b012; --b-ink:#241b00;
+  --court:#b8624a; --free:#2c7476; --lines:#f1f1f1; --accent:#8ea8ff; --warn:#fb923c; --ok:#4ade80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --surface:#172027; --surface2:#1d2830; --ink:#e5ecf1; --muted:#8e9eaa; --line:#28343d;
+  --a:#1c8a50; --a-ink:#ffffff; --b:#e8b012; --b-ink:#241b00;
+  --court:#b8624a; --free:#2c7476; --lines:#f1f1f1; --accent:#8ea8ff; --warn:#fb923c; --ok:#4ade80; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--body);font-size:15px;line-height:1.4;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 40px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
+.brand small{font-family:var(--body);font-weight:500;font-size:12px;color:var(--muted);letter-spacing:.02em;text-transform:none;margin-left:6px}
+.ghost{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:600}
+.ghost.danger{color:var(--warn);border-color:var(--warn)}
+
+/* scoreboard */
+.board{background:var(--surface);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--line)}
+.names{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.name{border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-weight:600;letter-spacing:.06em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;background:var(--surface2)}
+.round{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);border:1px solid var(--line);color:var(--accent)}
+.scores{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.pt{height:clamp(84px,22vw,108px);border-radius:999px;font-family:var(--display);font-weight:700;font-size:clamp(48px,13vw,68px);font-variant-numeric:tabular-nums;transition:transform .12s;position:relative}
+.pt:active{transform:scale(.96)}
+.pt:disabled{opacity:.55;cursor:not-allowed}
+.pt.t0{background:var(--a);color:var(--a-ink)}
+.pt.t1{background:var(--b);color:var(--b-ink)}
+.pt .plus{position:absolute;bottom:8px;left:0;right:0;font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.1em;opacity:.75}
+.mid{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:70px}
+.sets{font-family:var(--display);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;display:flex;gap:14px}
+.serve{display:flex;gap:16px}
+.serve span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;opacity:.12;transition:opacity .3s,transform .3s}
+.serve span.on{opacity:1;transform:scale(1.1);background:var(--surface2);box-shadow:0 0 0 1px var(--line)}
+.setlbl{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.hist{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:center}
+
+.actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;align-items:start}
+.act{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:center}
+.act .ic{width:clamp(44px,12vw,52px);height:clamp(44px,12vw,52px);border-radius:50%;display:grid;place-items:center;position:relative}
+.act.t0 .ic{background:var(--a);color:var(--a-ink)}
+.act.t1 .ic{background:var(--b);color:var(--b-ink)}
+.act.undo .ic{background:var(--surface);color:var(--accent);border:1px solid var(--line);width:clamp(50px,14vw,58px);height:clamp(50px,14vw,58px)}
+.act:disabled{opacity:.45;cursor:not-allowed}
+.dots{display:flex;gap:4px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.dots i.used{background:var(--line)}
+.cnt{font-family:var(--display);font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+
+/* tabs */
+.tabs{display:flex;background:var(--surface);border-radius:12px;padding:5px;gap:4px;border:1px solid var(--line)}
+.tab{flex:1;padding:9px 6px;border-radius:9px;font-weight:600;font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+.tab[aria-selected="true"]{background:var(--surface2);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}
+
+/* court */
+.courtbox{background:var(--free);border-radius:12px;padding:5% 4%;position:relative}
+.play{position:relative;aspect-ratio:2/1;background:var(--court);border:3px solid var(--lines);max-width:100%}
+.play .net{position:absolute;left:50%;top:-12%;bottom:-12%;width:4px;margin-left:-2px;background:var(--lines);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.play .atk{position:absolute;top:0;bottom:0;width:2px;background:var(--lines);opacity:.85}
+.play .atk.l{left:33.33%}.play .atk.r{left:66.67%}
+.half{position:absolute;top:0;bottom:0;width:50%;pointer-events:none}
+.half.L{left:0}.half.R{left:50%}
+.half .rotfx{position:absolute;inset:0;display:grid;place-items:center;opacity:0;color:var(--lines)}
+.half .rotfx.go{animation:rotfx 1s ease}
+.half .rotfx svg{width:34%;height:auto}
+@keyframes rotfx{0%{opacity:0;transform:rotate(-40deg) scale(.8)}35%{opacity:.6}100%{opacity:0;transform:rotate(40deg) scale(1.05)}}
+.tok{position:absolute;width:var(--tk);height:var(--tk);margin:calc(var(--tk) / -2) 0 0 calc(var(--tk) / -2);border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:calc(var(--tk) * .42);line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.25);transition:left .8s cubic-bezier(.65,0,.3,1),top .8s cubic-bezier(.65,0,.3,1),transform .35s,opacity .35s;z-index:2}
+.tok.t0{background:var(--a);color:var(--a-ink)}
+.tok.t1{background:var(--b);color:var(--b-ink)}
+.tok .p{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-family:var(--body);font-size:10px;font-weight:600;background:var(--surface);color:var(--ink);border-radius:6px;padding:0 5px;line-height:15px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tok .ball{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#fff;display:none;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tok.srv .ball{display:block}
+.tok.srv{box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,0,0,.35)}
+.tok.enter{transform:scale(0);opacity:0}
+.tok.leave{transform:scale(0);opacity:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);padding-top:10px}
+
+.panel{background:var(--surface);border-radius:12px;border:1px solid var(--line);padding:14px}
+.panel h3{margin:0 0 8px;font-family:var(--display);font-size:18px;letter-spacing:.03em;text-transform:uppercase}
+.log{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto;display:flex;flex-direction:column}
+.log li{display:grid;grid-template-columns:56px 10px 1fr;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log li b{font-family:var(--display);font-size:18px;font-variant-numeric:tabular-nums}
+.log li i{width:10px;height:10px;border-radius:50%}
+.log li i.t0{background:var(--a)}.log li i.t1{background:var(--b)}.log li i.sys{background:var(--muted)}
+.empty{color:var(--muted);font-size:14px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:center;font-size:14px}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tw{overflow-x:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);margin:2px}
+.rules{font-size:13px;color:var(--muted);margin:10px 0 0;padding-left:18px}
+.rules li{margin:2px 0}
+
+/* setup */
+.setup{display:flex;flex-direction:column;gap:14px}
+.setup h2{margin:0;font-family:var(--display);font-size:26px;text-transform:uppercase;letter-spacing:.03em}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+input,select{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.lineup{border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--line)}
+.lineup.t0{border-top:5px solid var(--a)}.lineup.t1{border-top:5px solid var(--b)}
+.lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.lgrid label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted);text-align:center}
+.lgrid input{text-align:center;font-family:var(--display);font-size:22px;font-weight:600;padding:6px}
+.lnote{font-size:11px;color:var(--muted);text-align:center}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:140px}
+.primary{background:var(--accent);color:var(--surface);padding:12px 18px;border-radius:10px;font-weight:600;font-size:15px}
+.radio{display:flex;gap:8px}
+.radio label{flex:1;display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:500}
+.radio input{width:auto}
+.err{color:var(--warn);font-size:13px;min-height:1em;margin:0}
+
+.fmt{display:flex;flex-direction:column;gap:10px;padding:12px;border:1px dashed var(--line);border-radius:12px}
+.tok{cursor:pointer}
+.pairs{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.prow .tn{font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;display:flex;align-items:center;gap:6px;margin-right:4px}
+.prow .tn i{width:10px;height:10px;border-radius:50%}
+.prow .tn i.t0{background:var(--a)}.prow .tn i.t1{background:var(--b)}
+.pc{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-size:17px;font-weight:600;padding:2px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface2);font-variant-numeric:tabular-nums}
+.pc em{font-style:normal;font-family:var(--body);font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.pc.live{border-color:var(--accent)}
+.pc.done{opacity:.6}
+.prow .cntb{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.benchg{display:flex;flex-wrap:wrap;gap:8px}
+.benchg button{min-width:52px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-family:var(--display);font-size:22px;font-weight:600}
+.benchg button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.benchg button:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+.kp{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;align-items:center}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.keys button{padding:12px 0;border-radius:8px;background:var(--surface2);border:1px solid var(--line);font-family:var(--display);font-size:20px;font-weight:600}
+.keys button:disabled{opacity:.35}
+.swapPrev{font-family:var(--display);font-size:26px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;line-height:1.1}
+.swapPrev small{display:block;font-family:var(--body);font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.liga{display:flex;flex-direction:column;gap:12px}
+.h2{margin:0;font-family:var(--display);font-size:24px;text-transform:uppercase;letter-spacing:.03em}
+.fixlist{display:flex;flex-direction:column;gap:8px}
+.fx{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
+.fx:hover{border-color:var(--accent)}
+.fx .no{font-family:var(--display);font-size:24px;font-weight:700;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.fx .teams{min-width:0;display:flex;flex-direction:column;gap:2px}
+.fx .tm{font-weight:600;font-size:14px;letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:6px;min-width:0}
+.fx .tm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx .tm.win{color:var(--ok)}
+.fx .tm .sc{margin-left:auto;font-family:var(--display);font-size:18px;color:var(--ink)}
+.fx .meta{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fx .st{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.fx .st.live{color:var(--accent);border-color:var(--accent)}
+.fx .st.done{color:var(--ok);border-color:var(--ok)}
+.lt{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;background:var(--surface);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);flex:none}
+#stand td:nth-child(2){text-align:left;font-weight:600;text-transform:uppercase;font-size:13px;white-space:nowrap}
+#stand td.pts{font-family:var(--display);font-size:20px;font-weight:700}
+.savest{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.savest::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.savest.ok::before{background:var(--ok)}.savest.busy::before{background:var(--b)}.savest.err::before{background:var(--warn)}
+/* dialogs */
+.ov{position:fixed;inset:0;background:rgba(5,10,14,.55);display:grid;place-items:center;z-index:20;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--surface);border-radius:16px;padding:18px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto}
+.sheet h3{margin:0;font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.03em}
+.sheet p{margin:0}
+.pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pick button{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.pick button b{font-family:var(--display);font-size:24px}
+.pick button small{font-size:10.5px;color:var(--muted);line-height:1.2}
+.pick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.pick button:disabled{opacity:.4;cursor:not-allowed}
+.btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.clock{width:180px;height:180px;margin:0 auto;position:relative}
+.clock svg{width:100%;height:100%;transform:rotate(-90deg)}
+.clock b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:64px;font-variant-numeric:tabular-nums}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:500;opacity:0;transition:.25s;z-index:30;max-width:calc(100% - 32px);text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){.tok,.serve span,.toast{transition:none}.half .rotfx.go{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#2747a8" stroke-width="1.6"/><path d="M12 2c2.5 3 3 7 1 10M3 9c4-1 8 0 10 3M5 19c1-4 4-6 8-7M22 13c-4 1-7 0-9-1M17 21c-1-4-2-7-4-9" fill="none" stroke="#2747a8" stroke-width="1.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l2.5 2M9 2h6M12 2v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
+  <symbol id="i-sub" viewBox="0 0 24 24"><path d="M7 20V5M3 9l4-4 4 4M17 4v15M13 15l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10a6 6 0 0 1 0 12h-3" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h15l-4-4M20 16H5l4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" fill="currentColor"/><circle cx="17" cy="9" r="2.6" fill="currentColor" opacity=".7"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6zM15 20c0-2-.6-3.6-1.7-4.8 3.6-.6 8.7.4 8.7 4.8z" fill="currentColor"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8M15 7h6v6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-rot" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">eScorer<small>Liga Kumpulan Bola Tampar</small></div>
+    <div style="display:flex;align-items:center;gap:10px"><span class="savest" id="saveSt" aria-live="polite"></span><button class="ghost" id="ligaBtn" hidden>← Liga</button></div>
+  </div>
+
+  <!-- LIGA -->
+  <section id="liga" class="liga">
+    <div class="board">
+      <h2 class="h2">Liga Kumpulan</h2>
+      <div class="fixlist" id="fixList"></div>
+    </div>
+    <div class="board">
+      <h2 class="h2">Kedudukan</h2>
+      <div class="tw"><table id="stand"></table></div>
+      <p class="lnote" style="text-align:left;margin:0"><b>Sistem mata:</b> Menang 2–0 = 3 · Menang 2–1 = 2 · Kalah 1–2 = 1 · Kalah 0–2 = 0<br><b>Setiap set:</b> 15 mata · mesti beza 2 mata · deuce had 17 (pada 16–16, mata seterusnya menang set)</p>
+    </div>
+    <div class="btns"><button class="ghost danger" id="resetLiga">Padam semua keputusan</button></div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="board setup" id="setup" hidden>
+    <h2 id="setupTitle">Perlawanan</h2>
+    <input type="hidden" id="nA"><input type="hidden" id="nB">
+    <p class="lnote" style="text-align:left;margin:0">Terbaik 3 set · setiap set 15 mata · mesti beza 2 · deuce had 17</p>
+    <div class="field">Servis pertama set ini
+      <div class="radio"><label><input type="radio" name="fs" value="0" checked> <span id="fsA">Hakim</span></label><label><input type="radio" name="fs" value="1"> <span id="fsB">Huhuh</span></label></div>
+    </div>
+    <div class="grid2">
+      <div class="lineup t0"><b id="luA">Hakim</b><div class="lgrid" id="gA"></div><div class="lnote">Baris depan IV · III · II &nbsp;/&nbsp; Baris belakang V · VI · I (I = pemain servis)</div>
+        <label class="field">Pemain simpanan<input id="bA" inputmode="numeric" placeholder="cth. 5, 6, 15"></label></div>
+      <div class="lineup t1"><b id="luB">Huhuh</b><div class="lgrid" id="gB"></div><div class="lnote">Masukkan nombor jersi 1–99, tiada ulangan</div>
+        <label class="field">Pemain simpanan<input id="bB" inputmode="numeric" placeholder="cth. 5, 6, 15"></label></div>
+    </div>
+    <p class="err" id="setupErr"></p>
+    <div class="btns"><button class="ghost" id="setupBack">Kembali</button><button class="primary" id="startBtn">Mula perlawanan</button></div>
+  </section>
+
+  <!-- MATCH -->
+  <section id="match" hidden style="display:flex;flex-direction:column;gap:12px">
+    <div class="board">
+      <div class="names">
+        <div class="name" id="nameL"></div>
+        <button class="round" id="swapBtn" aria-label="Tukar gelanggang" title="Tukar gelanggang"><svg width="18" height="18"><use href="#i-swap"/></svg></button>
+        <div class="name" id="nameR"></div>
+      </div>
+      <div class="scores">
+        <button class="pt" id="ptL"><span class="v">0</span><span class="plus">+1 MATA</span></button>
+        <div class="mid">
+          <div class="sets" aria-label="Set dimenangi"><span id="setL">0</span><span id="setR">0</span></div>
+          <div class="serve"><span id="srvL"><svg width="22" height="22"><use href="#i-ball"/></svg></span><span id="srvR"><svg width="22" height="22"><use href="#i-ball"/></svg></span></div>
+        </div>
+        <button class="pt" id="ptR"><span class="v">0</span><span class="plus">+1 MATA</span></button>
+      </div>
+      <div>
+        <div class="setlbl" id="setLbl">Set 1</div>
+        <div class="hist" id="hist"></div>
+      </div>
+      <div class="actions">
+        <button class="act" id="toL"><span class="ic"><svg width="22" height="22"><use href="#i-clock"/></svg></span>Time-out<span class="dots"></span></button>
+        <button class="act" id="subL"><span class="ic"><svg width="22" height="22"><use href="#i-sub"/></svg></span>Ganti<span class="cnt"></span></button>
+        <button class="act undo" id="undoBtn"><span class="ic"><svg width="24" height="24"><use href="#i-undo"/></svg></span>Batal</button>
+        <button class="act" id="subR"><span class="ic"><svg width="22" height="22"><use href="#i-sub"/></svg></span>Ganti<span class="cnt"></span></button>
+        <button class="act" id="toR"><span class="ic"><svg width="22" height="22"><use href="#i-clock"/></svg></span>Time-out<span class="dots"></span></button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="court"><svg width="18" height="18"><use href="#i-team"/></svg>Posisi</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="log"><svg width="18" height="18"><use href="#i-list"/></svg>Log</button>
+    </div>
+
+    <div id="tab-court">
+      <div class="courtbox">
+        <div class="play" id="play">
+          <div class="atk l"></div><div class="atk r"></div><div class="net"></div>
+          <div class="half L"><div class="rotfx" id="fxL"><svg viewBox="0 0 24 24"><use href="#i-rot"/></svg></div></div>
+          <div class="half R"><div class="rotfx" id="fxR"><svg viewBox="0 0 24 24"><use href="#i-rot"/></svg></div></div>
+        </div>
+      </div>
+      <div class="legend"><span>Tekan pemain di gelanggang untuk ganti · tiada had gantian</span><span>Bola putih = pemain servis</span><span>Putaran ikut arah jam bila menang servis balik</span></div>
+      <div class="pairs" id="pairs"></div>
+    </div>
+    <div class="panel" id="tab-log" hidden><h3>Log perlawanan</h3><ul class="log" id="log"></ul></div>
+  </section>
+</div>
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const ROM=['I','II','III','IV','V','VI'];
+// koordinat posisi I..VI untuk pasukan di sebelah kiri (% dalam gelanggang penuh)
+const POS=[[16,83],[41,83],[41,50],[41,17],[16,17],[16,50]];
+const MAX_SUB=6, MAX_TO=2, TO_SEC=30;
+const $=s=>document.querySelector(s);
+let S=null,H=[],tab='court',toTimer=null;
+const tokens=new Map();
+
+/* ---------- penyimpanan ---------- */
+function save(){
+  if(S&&S.matchId){if(S.matchOver)LG.res[S.matchId]={sets:S.sets.map(x=>x.s.slice())};else delete LG.res[S.matchId];saveLiga()}
+  try{localStorage.setItem('vb-escorer',JSON.stringify({S,H:H.slice(-200)}));localStorage.setItem('vb-liga',JSON.stringify(LG));localStorage.setItem('vb-at',String(stamp()))}catch(e){}
+  queueCloud();
+}
+function mig(x){if(!x.fmt)x.fmt={pts:25,dec:15,deuce:true,cap:0,mod:false};if(!x.bench)x.bench=[[],[]];return x}
+function load(){try{const d=JSON.parse(localStorage.getItem('vb-escorer'));if(d&&d.S){S=mig(d.S);H=d.H||[];return true}}catch(e){}return false}
+function snap(){H.push(JSON.stringify(S));if(H.length>300)H.shift()}
+
+/* ---------- utiliti ---------- */
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+const name=t=>S.names[t];
+const sideTeam=s=>s==='L'?S.left:1-S.left;
+const deciding=()=>S.bestOf>1&&S.setNo===S.bestOf;
+const need=()=>Math.ceil(S.bestOf/2);
+function addLog(t,txt){S.log.unshift({t,txt,sc:S.score[0]+'-'+S.score[1],set:S.setNo})}
+const rotate=a=>a.map((_,i)=>a[(i+1)%6]);
+
+/* ---------- setup ---------- */
+const DEF=[[1,7,10,4,9,12],[3,5,8,11,14,2]];
+const DEFB=[[6,15,17],[1,9,16]];
+const parseBench=s=>s.split(/[^0-9]+/).filter(Boolean).map(Number);
+const FMT={pts:15,dec:15,deuce:true,cap:17,mod:false};
+const TEAMS={A:'K.E.M',B:'ADMINX',C:'UNBEATEN',D:'BUKAN BIASHE-BIASHE'};
+const FIX=[{id:1,t:'1030',h:'B',a:'A'},{id:2,t:'',h:'C',a:'D'},{id:3,t:'',h:'D',a:'A'},{id:4,t:'',h:'B',a:'C'},{id:5,t:'',h:'C',a:'A'},{id:6,t:'',h:'D',a:'B'}];
+let LG={res:{}};
+function loadLiga(){try{const d=JSON.parse(localStorage.getItem('vb-liga'));if(d&&d.res)LG=d}catch(e){}}
+function saveLiga(){try{localStorage.setItem('vb-liga',JSON.stringify(LG));localStorage.setItem('vb-at',String(stamp()))}catch(e){}queueCloud()}
+/* ---------- simpanan awan (kekal walaupun refresh / tutup / tukar peranti) ---------- */
+let DB=null,dbBusy=false,dbDirty=false,dbTimer=null,lastAt=0;
+function stamp(){lastAt=Math.max(Date.now(),lastAt+1);return lastAt}
+function localAt(){try{return +localStorage.getItem('vb-at')||0}catch(e){return 0}}
+function setSt(cls,txt){const el=$('#saveSt');if(!el)return;el.className='savest '+cls;el.textContent=txt}
+function queueCloud(){if(!DB){setSt('ok','Disimpan dalam peranti');return}setSt('busy','Menyimpan…');clearTimeout(dbTimer);dbTimer=setTimeout(pushCloud,400)}
+async function pushCloud(){
+  if(!DB)return;
+  if(dbBusy){dbDirty=true;return}
+  dbBusy=true;
+  try{
+    let live='';if(S){const c=Object.assign({},S,{log:S.log.slice(0,300)});live=JSON.stringify(c)}
+    await DB.doc('liga/state').set({res:JSON.stringify(LG),live,at:localAt()||stamp()});
+    setSt('ok','Disimpan');
+  }catch(e){setSt('err','Gagal simpan ke awan — data masih dalam peranti')}
+  dbBusy=false;
+  if(dbDirty){dbDirty=false;pushCloud()}
+}
+async function initCloud(){
+  let c=null;
+  for(let i=0;i<20&&!(window.claude&&window.claude.use);i++)await new Promise(r=>setTimeout(r,250));
+  try{c=window.claude&&window.claude.use?await window.claude.use('db'):null}catch(e){c=null}
+  if(!c){setSt('ok','Disimpan dalam peranti');return}
+  DB=c;setSt('busy','Menyemak simpanan…');
+  try{
+    const snap=await DB.doc('liga/state').get();
+    const d=snap.exists?snap.data():null;
+    if(d&&(+d.at||0)>localAt()){
+      LG=JSON.parse(d.res||'{"res":{}}');if(!LG.res)LG={res:{}};
+      S=d.live?mig(JSON.parse(d.live)):null;H=[];
+      try{localStorage.setItem('vb-liga',JSON.stringify(LG));localStorage.setItem('vb-escorer',JSON.stringify({S,H}));localStorage.setItem('vb-at',String(d.at))}catch(e){}
+      closeOv();tokens.forEach(el=>el.remove());tokens.clear();
+      if(S&&S.matchId&&!S.matchOver){showMatch();if(S.setOver)showSetEnd()}else view('liga');
+      setSt('ok','Disimpan');toast('Data dipulihkan dari simpanan');
+    }else if(!d||(+d.at||0)<localAt()){pushCloud()}
+    else setSt('ok','Disimpan');
+  }catch(e){setSt('err','Simpanan awan tidak dapat dibaca — guna data peranti')}
+}
+
+const LAYOUT=[3,2,1,4,5,0]; // susunan grid: IV III II / V VI I
+function buildLineupInputs(vals){
+  ['A','B'].forEach((k,t)=>{
+    const g=$('#g'+k);g.innerHTML='';
+    LAYOUT.forEach(i=>{
+      const l=document.createElement('label');
+      l.innerHTML=`Posisi ${ROM[i]}<input id="l${k}${i}" inputmode="numeric" maxlength="2" value="${vals[t][i]}">`;
+      g.appendChild(l);
+    });
+  });
+}
+function syncNames(){
+  const a=$('#nA').value.trim()||'Pasukan A',b=$('#nB').value.trim()||'Pasukan B';
+  $('#fsA').textContent=a;$('#fsB').textContent=b;$('#luA').textContent=a;$('#luB').textContent=b;
+}
+let setupMode='match';
+let curFix=null;
+function view(v){
+  $('#liga').hidden=v!=='liga';$('#setup').hidden=v!=='setup';
+  $('#match').hidden=v!=='match';$('#match').style.display=v==='match'?'flex':'none';
+  $('#ligaBtn').hidden=v==='liga';
+  if(v==='liga')renderLiga();
+  window.scrollTo(0,0);
+}
+function showSetup(mode,fx){
+  setupMode=mode;view('setup');
+  $('#setupErr').textContent='';
+  if(mode==='match'){
+    curFix=fx;
+    $('#nA').value=TEAMS[fx.h];$('#nB').value=TEAMS[fx.a];
+    $('#setupTitle').textContent=`Perlawanan ${fx.id}`+(fx.t?` · ${fx.t}`:'');$('#startBtn').textContent='Mula perlawanan';
+    buildLineupInputs(DEF);$('#bA').value=DEFB[0].join(', ');$('#bB').value=DEFB[1].join(', ');
+    document.querySelector('input[name=fs][value="0"]').checked=true;
+    $('#setupBack').hidden=false;
+  }else{
+    $('#setupTitle').textContent=`Barisan set ${S.setNo+1}`+(S.setNo+1===S.bestOf?' (set penentu)':'');
+    $('#startBtn').textContent=`Mula set ${S.setNo+1}`;$('#setupBack').hidden=true;
+    $('#nA').value=S.names[0];$('#nB').value=S.names[1];
+    buildLineupInputs(S.starters);
+    const all=t=>[...new Set([...S.bench[t],...S.starters[t],...S.rot[t],...S.pairs[t].map(p=>p.sub)])].sort((a,b)=>a-b);
+    $('#bA').value=all(0).filter(n=>!S.starters[0].includes(n)).join(', ');
+    $('#bB').value=all(1).filter(n=>!S.starters[1].includes(n)).join(', ');
+    const def=1-S.firstServe;
+    document.querySelector(`input[name=fs][value="${def}"]`).checked=true;
+  }
+  syncNames();
+}
+function readLineups(){
+  const out=[[],[]];
+  for(const [t,k] of [[0,'A'],[1,'B']]){
+    for(let i=0;i<6;i++){
+      const v=$('#l'+k+i).value.trim();
+      if(!/^\d{1,2}$/.test(v)||+v<1)return {err:`${name2(t)}: posisi ${ROM[i]} perlu nombor jersi 1–99.`};
+      out[t][i]=+v;
+    }
+    if(new Set(out[t]).size!==6)return {err:`${name2(t)}: nombor jersi tidak boleh berulang.`};
+  }
+  const bench=[[],[]];
+  for(const [t,k] of [[0,'A'],[1,'B']]){
+    const b=[...new Set(parseBench($('#b'+k).value))];
+    if(b.some(n=>n<1||n>99))return {err:`${name2(t)}: nombor simpanan mesti 1–99.`};
+    const clash=b.find(n=>out[t].includes(n));
+    if(clash)return {err:`${name2(t)}: #${clash} sudah ada dalam barisan utama.`};
+    bench[t]=b;
+  }
+  return {v:out,bench};
+}
+function name2(t){return t===0?($('#nA').value.trim()||'Pasukan A'):($('#nB').value.trim()||'Pasukan B')}
+$('#startBtn').onclick=()=>{
+  const r=readLineups();if(r.err){$('#setupErr').textContent=r.err;return}
+  const fs=+document.querySelector('input[name=fs]:checked').value;
+  if(setupMode==='match'){
+    H=[];
+    S={matchId:curFix.id,names:[name2(0),name2(1)],bestOf:3,fmt:FMT,bench:r.bench,left:0,setNo:1,setsWon:[0,0],sets:[],
+       score:[0,0],serving:fs,firstServe:fs,rot:r.v.map(a=>a.slice()),starters:r.v.map(a=>a.slice()),
+       pairs:[[],[]],subCount:[0,0],to:[0,0],log:[],setOver:false,matchOver:false,swapped8:false};
+    addLog(null,`Set 1 bermula · servis pertama ${name(fs)}`);
+  }else{
+    snap();
+    S.setNo++;S.score=[0,0];S.to=[0,0];S.subCount=[0,0];S.pairs=[[],[]];S.setOver=false;S.swapped8=false;
+    S.rot=r.v.map(a=>a.slice());S.starters=r.v.map(a=>a.slice());S.bench=r.bench;
+    S.left=1-S.left;S.firstServe=fs;S.serving=fs;
+    addLog(null,`Set ${S.setNo} bermula · tukar gelanggang · servis ${name(fs)}`);
+  }
+  save();showMatch();
+};
+
+/* ---------- perlawanan ---------- */
+function showMatch(){
+  view('match');
+  tokens.forEach(el=>el.remove());tokens.clear();
+  render();
+}
+function point(t){
+  if(!S||S.setOver)return;
+  snap();
+  S.score[t]++;
+  let rotated=false;
+  if(S.serving!==t){S.serving=t;S.rot[t]=rotate(S.rot[t]);rotated=true}
+  addLog(t,rotated?`Mata ${name(t)} · servis balik, putaran (servis: #${S.rot[t][0]})`:`Mata ${name(t)}`);
+  const half=Math.ceil(S.fmt.dec/2);
+  if(deciding()&&!S.swapped8&&Math.max(...S.score)===half){
+    S.left=1-S.left;S.swapped8=true;addLog(null,`Tukar gelanggang (${half} mata set penentu)`);toast(`Tukar gelanggang — ${half} mata set penentu`);
+  }
+  if(setWon(t)){
+    S.setOver=true;S.sets.push({s:S.score.slice(),w:t});S.setsWon[t]++;
+    if(S.setsWon[t]===need())S.matchOver=true;
+    addLog(t,`Set ${S.setNo} dimenangi ${name(t)} ${S.score[t]}-${S.score[1-t]}`);
+  }
+  save();render();
+  if(rotated)fx(t);
+  if(S.setOver)setTimeout(showSetEnd,700);
+}
+function setWon(t){
+  const f=S.fmt,target=deciding()?f.dec:f.pts,a=S.score[t],b=S.score[1-t];
+  if(a<target)return false;
+  if(!f.deuce)return true;
+  if(f.cap&&a>=f.cap)return true;
+  return a-b>=2;
+}
+function deuceNow(){
+  const f=S.fmt,target=deciding()?f.dec:f.pts;
+  return f.deuce&&S.score[0]>=target-1&&S.score[1]>=target-1&&!S.setOver;
+}
+function fx(t){
+  const el=$(t===S.left?'#fxL':'#fxR');el.classList.remove('go');void el.offsetWidth;el.classList.add('go');
+}
+function undo(){
+  if(!H.length){toast('Tiada tindakan untuk dibatalkan');return}
+  const prevSet=S.setNo;
+  S=mig(JSON.parse(H.pop()));closeOv();save();
+  if(S.setNo!==prevSet){tokens.forEach(el=>el.remove());tokens.clear()}
+  render();toast("Tindakan terakhir dibatalkan");if(S.setOver)setTimeout(showSetEnd,400);
+}
+
+/* ---------- time-out ---------- */
+function timeout(t){
+  if(S.setOver)return;
+  if(S.to[t]>=MAX_TO){toast(`${name(t)} sudah guna 2 time-out set ini`);return}
+  snap();S.to[t]++;addLog(t,`Time-out ${name(t)} (${S.to[t]}/${MAX_TO})`);save();render();
+  let left=TO_SEC;const C=2*Math.PI*80;
+  openOv(`<h3>Time-out · ${esc(name(t))}</h3>
+    <div class="clock"><svg viewBox="0 0 180 180"><circle cx="90" cy="90" r="80" fill="none" stroke="var(--line)" stroke-width="10"/><circle id="arc" cx="90" cy="90" r="80" fill="none" stroke="${t?'var(--b)':'var(--a)'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear"/></svg><b id="clk">30</b></div>
+    <p class="setlbl">Time-out ke-${S.to[t]} daripada 2 · 30 saat (FIVB)</p>
+    <div class="btns"><button class="primary" id="toEnd">Sambung permainan</button></div>`);
+  $('#toEnd').onclick=closeOv;
+  clearInterval(toTimer);
+  toTimer=setInterval(()=>{left--;const c=$('#clk'),a=$('#arc');if(!c){clearInterval(toTimer);return}
+    c.textContent=Math.max(left,0);a.style.strokeDashoffset=C*(1-left/TO_SEC);
+    if(left<=0){clearInterval(toTimer);c.textContent='0';toast('Time-out tamat');setTimeout(closeOv,600)}},1000);
+}
+
+/* ---------- penggantian (FIVB 15.5–15.6) ---------- */
+function status(t,num){return {ok:true,note:'tekan untuk ganti'}}
+function pairChips(t){
+  const pr=S.pairs[t];
+  if(!pr.length)return '<span class="empty" style="font-size:13px">Belum ada penggantian</span>';
+  return pr.map(p=>`<span class="pc live">#${p.starter} → #${p.sub}</span>`).join('');
+}
+function openSub(t,pre){
+  if(S.setOver)return;
+  // tiada pemain dipilih: tunjuk pemain di gelanggang untuk ditekan
+  if(pre==null){
+    const chips=S.rot[t].map((n,i)=>{const st=status(t,n);return `<button data-n="${n}" ${st.ok?'':'disabled'}><b>${n}</b><small>Posisi ${ROM[i]}<br>${st.note}</small></button>`}).join('');
+    openOv(`<h3>Ganti · ${esc(name(t))}</h3><p class="setlbl" style="text-align:left">Tekan pemain yang keluar · ${S.subCount[t]} penggantian</p>
+      <div class="pick" id="pick">${chips}</div><div class="btns"><button class="ghost" id="subCancel">Batal</button></div>`);
+    $('#pick').onclick=e=>{const b=e.target.closest('button');if(b&&!b.disabled)openSub(t,+b.dataset.n)};
+    $('#subCancel').onclick=closeOv;return;
+  }
+  const out=+pre,st=status(t,out),posI=S.rot[t].indexOf(out);
+  if(!st.ok){toast(`#${out} tidak boleh diganti — ${st.note}`);return}
+  const must=null;
+  const usedSubs=new Set();
+  const pool=[...new Set([...S.bench[t],...S.starters[t],...S.pairs[t].flatMap(p=>[p.starter,p.sub])])].sort((a,b)=>a-b);
+  let inn=must?String(must):'';
+  const quick=must?[must]:pool.filter(n=>!S.rot[t].includes(n));
+  const keys=['1','2','3','4','5','6','7','8','9','C','0','⌫'].map(k=>`<button data-k="${k}" ${must?'disabled':''} aria-label="${k==='⌫'?'Padam':k==='C'?'Kosongkan':k}">${k}</button>`).join('');
+  openOv(`<h3>Ganti #${out} · Posisi ${ROM[posI]}</h3>
+    <p class="setlbl" style="text-align:left">${esc(name(t))} · ${S.subCount[t]} penggantian set ini${must?` · pemain gantian, hanya #${must} boleh masuk`:''}</p>
+    <div class="swapPrev" id="swapPrev"></div>
+    ${quick.length?`<div class="benchg" id="benchg">${quick.map(n=>`<button data-n="${n}">${n}</button>`).join('')}</div>`:''}
+    ${must?'':`<div class="keys" id="keys">${keys}</div>`}
+    <p class="err" id="subErr"></p>
+    <div class="btns"><button class="ghost" id="subCancel">Batal</button><button class="primary" id="subOk">Masuk</button></div>`);
+  function draw(){
+    $('#swapPrev').innerHTML=`<small>Keluar → Masuk</small>#${out} → ${inn?'#'+inn:'<span style="opacity:.35">__</span>'}`;
+    document.querySelectorAll('#benchg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.n===inn)));
+    $('#subErr').textContent='';
+  }
+  draw();
+  if($('#benchg'))$('#benchg').onclick=e=>{const b=e.target.closest('button');if(!b)return;inn=b.dataset.n;draw()};
+  if($('#keys'))$('#keys').onclick=e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const k=b.dataset.k;
+    if(k==='C')inn='';else if(k==='⌫')inn=inn.slice(0,-1);else if(inn.length<2)inn=(inn+k).replace(/^0+/,'');draw()};
+  $('#subCancel').onclick=closeOv;
+  $('#subOk').onclick=()=>{
+    const err=m=>$('#subErr').textContent=m;
+    if(!inn)return err('Masukkan nombor pemain masuk.');
+    const n=+inn;
+    if(S.rot[t].includes(n))return err(`#${n} sudah berada di gelanggang.`);
+    const pr=S.pairs[t];
+    if(must){ if(n!==must)return err(`Hanya #${must} boleh ganti #${out}.`); }
+    else{
+      if(usedSubs.has(n))return err(`#${n} sudah digunakan sebagai pemain gantian set ini.`);
+    }
+    snap();
+    S.rot[t][posI]=n;
+    if(must){pr.find(p=>p.sub===out).done=true}else{pr.push({starter:out,sub:n,done:false});if(!S.bench[t].includes(n))S.bench[t].push(n)}
+    S.subCount[t]++;
+    addLog(t,`Ganti ${name(t)}: #${out} keluar, #${n} masuk (ke-${S.subCount[t]})`);
+    save();closeOv();render();toast(`#${n} masuk ganti #${out}`);
+  };
+}
+
+/* ---------- tamat set ---------- */
+function showSetEnd(){
+  if(!S.setOver)return;
+  const last=S.sets[S.sets.length-1],w=last.w;
+  const body=S.matchOver
+    ?`<h3>Perlawanan tamat</h3><p><b>${esc(name(w))}</b> menang ${S.setsWon[w]}–${S.setsWon[1-w]} · +${S.setsWon[1-w]?2:3} mata liga. ${esc(name(1-w))} +${S.setsWon[1-w]?1:0} mata.</p><p class="hist" style="text-align:left">${S.sets.map(x=>x.s.join('-')).join(' · ')}</p>
+      <div class="btns"><button class="ghost" id="seUndo">Batal mata terakhir</button><button class="primary" id="seClose">Kembali ke liga</button></div>`
+    :`<h3>Set ${S.setNo} tamat</h3><p><b>${esc(name(w))}</b> menang ${last.s[w]}–${last.s[1-w]}. Kedudukan set ${S.setsWon[0]}–${S.setsWon[1]}.</p>
+      <p class="setlbl" style="text-align:left">Set seterusnya: pasukan tukar gelanggang, servis pertama bertukar.</p>
+      <div class="btns"><button class="ghost" id="seUndo">Batal mata terakhir</button><button class="primary" id="seNext">Isi barisan set ${S.setNo+1}</button></div>`;
+  openOv(body);
+  $('#seUndo').onclick=undo;
+  if($('#seNext'))$('#seNext').onclick=()=>{closeOv();showSetup('set')};
+  if($('#seClose'))$('#seClose').onclick=()=>{closeOv();view('liga')};
+}
+
+/* ---------- overlay ---------- */
+function openOv(html){$('#sheet').innerHTML=html;$('#ov').hidden=false;const f=$('#sheet').querySelector('button,input');}
+function closeOv(){$('#ov').hidden=true;clearInterval(toTimer)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- render ---------- */
+function render(){
+  if(!S)return;
+  ['L','R'].forEach(sd=>{
+    const t=sideTeam(sd);
+    $('#name'+sd).textContent=name(t);
+    const pt=$('#pt'+sd);pt.className='pt t'+t;pt.querySelector('.v').textContent=S.score[t];pt.disabled=S.setOver;
+    pt.setAttribute('aria-label',`Mata untuk ${name(t)}`);
+    $('#set'+sd).textContent=S.setsWon[t];
+    $('#srv'+sd).classList.toggle('on',S.serving===t);
+    const to=$('#to'+sd);to.className='act t'+t;to.disabled=S.setOver||S.to[t]>=MAX_TO;
+    to.querySelector('.dots').innerHTML=[0,1].map(i=>`<i class="${i<S.to[t]?'used':''}"></i>`).join('');
+    const sb=$('#sub'+sd);sb.className='act t'+t;sb.disabled=S.setOver;
+    sb.querySelector('.cnt').textContent=S.subCount[t];
+  });
+  const f=S.fmt;$('#setLbl').textContent=(S.bestOf===1?'1 set':`Set ${S.setNo}`)+(deciding()?` · penentu (${f.dec} mata)`:` · ${f.pts} mata`)+(f.deuce?(f.cap?` · deuce had ${f.cap}`:' · deuce'):' · tanpa deuce')+(S.bestOf>1?` · terbaik ${S.bestOf}`:'')+(f.mod?' · modified':'')+(deuceNow()?'  —  DEUCE':'');
+  const L=S.left;
+  $('#hist').textContent=S.sets.length?'Set: '+S.sets.map(x=>x.s[L]+'-'+x.s[1-L]).join('  ·  '):'';
+  renderCourt();renderLog();renderPairs();
+}
+function renderCourt(){
+  const play=$('#play'),seen=new Set();
+  [0,1].forEach(t=>{
+    const right=t!==S.left;
+    S.rot[t].forEach((num,i)=>{
+      const key=t+'-'+num;seen.add(key);
+      let el=tokens.get(key),fresh=false;
+      if(!el){el=document.createElement('div');el.className='tok t'+t+' enter';
+        el.innerHTML=`<span class="n"></span><span class="p"></span><svg class="ball" viewBox="0 0 24 24"><use href="#i-ball"/></svg>`;
+        el.onclick=()=>openSub(t,+el.dataset.n);play.appendChild(el);tokens.set(key,el);fresh=true}
+      let [x,y]=POS[i];if(right){x=100-x;y=100-y}
+      el.style.left=x+'%';el.style.top=y+'%';
+      el.dataset.n=num;el.querySelector('.n').textContent=num;el.querySelector('.p').textContent=ROM[i];
+      el.classList.toggle('srv',S.serving===t&&i===0);
+      el.setAttribute('aria-label',`${name(t)} jersi ${num} posisi ${ROM[i]}`);
+      if(fresh)requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('enter')));
+    });
+  });
+  tokens.forEach((el,key)=>{if(!seen.has(key)){tokens.delete(key);el.classList.add('leave');setTimeout(()=>el.remove(),380)}});
+}
+function renderPairs(){
+  $('#pairs').innerHTML=[S.left,1-S.left].map(t=>`<div class="prow"><span class="tn"><i class="t${t}"></i>${esc(name(t))}</span>${pairChips(t)}<span class="cntb">Ganti ${S.subCount[t]}</span></div>`).join('');
+}
+function renderLog(){
+  const ul=$('#log');
+  if(!S.log.length){ul.innerHTML='<li class="empty">Belum ada rali.</li>';return}
+  ul.innerHTML=S.log.slice(0,250).map(e=>`<li><b>${e.sc}</b><i class="${e.t===null?'sys':'t'+e.t}"></i><span>S${e.set} · ${esc(e.txt)}</span></li>`).join('');
+}
+function setTab(name){
+  tab=name;
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===name));
+  $('#tab-court').hidden=name!=='court';$('#tab-log').hidden=name!=='log';
+}
+
+/* ---------- wiring ---------- */
+$('#ptL').onclick=()=>point(sideTeam('L'));$('#ptR').onclick=()=>point(sideTeam('R'));
+$('#toL').onclick=()=>timeout(sideTeam('L'));$('#toR').onclick=()=>timeout(sideTeam('R'));
+$('#subL').onclick=()=>openSub(sideTeam('L'));$('#subR').onclick=()=>openSub(sideTeam('R'));
+$('#undoBtn').onclick=undo;
+$('#swapBtn').onclick=()=>{snap();S.left=1-S.left;addLog(null,'Tukar gelanggang (manual)');save();render()};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$('#ov').addEventListener('click',e=>{if(e.target.id==='ov'&&!(S&&S.setOver))closeOv()});
+$('#ligaBtn').onclick=()=>{closeOv();view('liga')};
+$('#setupBack').onclick=()=>view(S&&setupMode==='set'?'match':'liga');
+$('#fixList').onclick=e=>{const b=e.target.closest('.fx');if(!b)return;openFix(+b.dataset.id)};
+let armedR=false;
+$('#resetLiga').onclick=()=>{
+  if(!armedR){armedR=true;$('#resetLiga').textContent='Tekan lagi untuk padam';setTimeout(()=>{armedR=false;$('#resetLiga').textContent='Padam semua keputusan'},3000);return}
+  armedR=false;$('#resetLiga').textContent='Padam semua keputusan';
+  S=null;H=[];LG={res:{}};try{localStorage.removeItem('vb-escorer')}catch(e){}saveLiga();
+  tokens.forEach(el=>el.remove());tokens.clear();renderLiga();toast('Semua keputusan dipadam');
+};
+function openFix(id){
+  const fx=FIX.find(f=>f.id===id);
+  if(S&&S.matchId===id&&!S.matchOver){showMatch();return}
+  const live=S&&!S.matchOver&&S.matchId!==id;
+  const r=LG.res[id];
+  if(!r&&!live){showSetup('match',fx);return}
+  const H_=TEAMS[fx.h],A_=TEAMS[fx.a];
+  openOv(`<h3>Perlawanan ${id}</h3><p><b>${esc(H_)}</b> vs <b>${esc(A_)}</b></p>`+
+    (r?`<p class="hist" style="text-align:left">Keputusan: ${r.sets.map(x=>x.join('-')).join(' · ')}</p><p class="setlbl" style="text-align:left">Skor semula akan memadam keputusan ini.</p>`:'')+
+    (live?`<p class="setlbl" style="text-align:left">Perlawanan ${S.matchId} masih berlangsung dan akan dibatalkan jika anda mula perlawanan ini.</p>`:'')+
+    `<div class="btns"><button class="ghost" id="fxNo">Tutup</button><button class="primary" id="fxGo">${r?'Skor semula':'Mula juga'}</button></div>`);
+  $('#fxNo').onclick=closeOv;
+  let armed=false;
+  $('#fxGo').onclick=()=>{
+    if(!armed){armed=true;$('#fxGo').textContent='Tekan lagi untuk sahkan';return}
+    if(r){delete LG.res[id];saveLiga()}
+    if(S&&S.matchId===id){S=null;H=[]}
+    closeOv();showSetup('match',fx);
+  };
+}
+function standings(){
+  const T={};Object.keys(TEAMS).forEach(k=>T[k]={k,P:0,W:0,L:0,SW:0,SL:0,PF:0,PA:0,Pts:0});
+  FIX.forEach(f=>{const r=LG.res[f.id];if(!r)return;
+    let sh=0,sa=0;r.sets.forEach(([h,a])=>{h>a?sh++:sa++;T[f.h].PF+=h;T[f.h].PA+=a;T[f.a].PF+=a;T[f.a].PA+=h});
+    const add=(k,w,l)=>{const t=T[k];t.P++;t.SW+=w;t.SL+=l;if(w>l){t.W++;t.Pts+=l?2:3}else{t.L++;t.Pts+=w?1:0}};
+    add(f.h,sh,sa);add(f.a,sa,sh);});
+  const ratio=(a,b)=>b?a/b:(a?Infinity:0);
+  return Object.values(T).sort((x,y)=>y.Pts-x.Pts||y.W-x.W||ratio(y.SW,y.SL)-ratio(x.SW,x.SL)||ratio(y.PF,y.PA)-ratio(x.PF,x.PA));
+}
+function renderLiga(){
+  $('#fixList').innerHTML=FIX.map(f=>{
+    const r=LG.res[f.id];let hs='',as='',wh=false,wa=false,st;
+    if(r){const sh=r.sets.filter(x=>x[0]>x[1]).length,sa=r.sets.length-sh;hs=sh;as=sa;wh=sh>sa;wa=!wh;st='<span class="st done">Tamat</span>'}
+    else if(S&&S.matchId===f.id&&!S.matchOver){st='<span class="st live">Sambung</span>'}
+    else st='<span class="st">Mula</span>';
+    const meta=r?r.sets.map(x=>x.join('-')).join(' · '):(S&&S.matchId===f.id&&!S.matchOver?`Set ${S.setNo} · ${S.score[0]}-${S.score[1]}`:(f.t?'Masa '+f.t:''));
+    return `<button class="fx" data-id="${f.id}"><span class="no">${f.id}</span><span class="teams">
+      <span class="tm ${wh?'win':''}"><span class="lt">${f.h}</span><span>${esc(TEAMS[f.h])}</span><b class="sc">${hs}</b></span>
+      <span class="tm ${wa?'win':''}"><span class="lt">${f.a}</span><span>${esc(TEAMS[f.a])}</span><b class="sc">${as}</b></span>
+      ${meta?`<span class="meta">${meta}</span>`:''}</span>${st}</button>`}).join('');
+  const rows=standings().map((t,i)=>`<tr><td>${i+1}</td><td>${esc(TEAMS[t.k])}</td><td>${t.P}</td><td>${t.W}</td><td>${t.L}</td><td>${t.SW}-${t.SL}</td><td>${t.PF}-${t.PA}</td><td class="pts">${t.Pts}</td></tr>`).join('');
+  $('#stand').innerHTML=`<thead><tr><th>#</th><th style="text-align:left">Pasukan</th><th>Main</th><th>M</th><th>K</th><th>Set</th><th>Mata</th><th>Pts</th></tr></thead><tbody>${rows}</tbody>`;
+}
+loadLiga();
+if(load()&&S.matchId&&!S.matchOver){showMatch();if(S.setOver)showSetEnd()}else{view('liga')}
+initCloud();
+window.addEventListener('pagehide',()=>{if(dbTimer){clearTimeout(dbTimer);pushCloud()}});
+</script>
+
+</body>
+</html>
